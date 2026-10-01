@@ -1,0 +1,149 @@
+--- a/shell/browser/native_window.h
++++ b/shell/browser/native_window.h
+@@ -5,6 +5,7 @@
+ #ifndef ELECTRON_SHELL_BROWSER_NATIVE_WINDOW_H_
+ #define ELECTRON_SHELL_BROWSER_NATIVE_WINDOW_H_
+ 
++#include <cstdint>
+ #include <list>
+ #include <memory>
+ #include <optional>
+@@ -95,6 +96,10 @@
+   virtual void Restore() = 0;
+   virtual bool IsMinimized() const = 0;
+   virtual void SetFullScreen(bool fullscreen) = 0;
++#if BUILDFLAG(IS_LINUX)
++  // Prototype: no implicit display choice; subclasses must explicitly support it.
++  virtual bool SetFullScreenOnDisplay(int64_t display_id) = 0;
++#endif
+   virtual bool IsFullscreen() const = 0;
+ 
+   virtual void SetBounds(const gfx::Rect& bounds, bool animate) = 0;
+--- a/shell/browser/native_window_views.h
++++ b/shell/browser/native_window_views.h
+@@ -7,6 +7,7 @@
+ 
+ #include "shell/browser/native_window.h"
+ 
++#include <cstdint>
+ #include <memory>
+ #include <optional>
+ #include <string>
+@@ -79,6 +80,9 @@
+   void Restore() override;
+   bool IsMinimized() const override;
+   void SetFullScreen(bool fullscreen) override;
++#if BUILDFLAG(IS_LINUX)
++  bool SetFullScreenOnDisplay(int64_t display_id) override;
++#endif
+   bool IsFullscreen() const override;
+   void SetBounds(const gfx::Rect& bounds, bool animate) override;
+   gfx::Rect GetBounds() const override;
+@@ -387,6 +391,9 @@
+   bool maximizable_ = true;
+   bool minimizable_ = true;
+   bool fullscreenable_ = true;
++#if BUILDFLAG(IS_LINUX)
++  std::optional<int64_t> fullscreen_target_display_id_;
++#endif
+   bool has_shadow_ = true;
+   gfx::Size widget_size_;
+   double opacity_ = 1.0;
+--- a/shell/browser/native_window_views.cc
++++ b/shell/browser/native_window_views.cc
+@@ -42,6 +42,7 @@
+ #include "ui/base/hit_test.h"
+ #include "ui/compositor/compositor.h"
+ #include "ui/display/screen.h"
++#include "ui/display/types/display_constants.h"
+ #include "ui/gfx/geometry/insets.h"
+ #include "ui/gfx/geometry/outsets.h"
+ #include "ui/gfx/image/image.h"
+@@ -806,6 +807,23 @@
+   return widget()->IsMinimized();
+ }
+ 
++#if BUILDFLAG(IS_LINUX)
++bool NativeWindowViews::SetFullScreenOnDisplay(int64_t display_id) {
++  display::Display target;
++  auto* screen = display::Screen::Get();
++  if (!IsVisible() || !IsFullScreenable() || !screen ||
++      display_id == display::kInvalidDisplayId ||
++      !screen->GetDisplayWithDisplayId(display_id, &target)) {
++    return false;
++  }
++  fullscreen_target_display_id_ = display_id;
++  SetFullScreen(true);
++  fullscreen_target_display_id_.reset();
++  // This reports submission only, not the compositor's placement decision.
++  return true;
++}
++#endif
++
+ void NativeWindowViews::SetFullScreen(bool fullscreen) {
+   if (!IsFullScreenable())
+     return;
+@@ -852,9 +870,16 @@
+   if (leaving_fullscreen && !IsVisible())
+     FlipWindowStyle(GetAcceleratedWidget(), true, WS_VISIBLE);
+ #else
+-  if (IsVisible())
++  if (IsVisible()) {
++#if BUILDFLAG(IS_LINUX)
++    widget()->SetFullscreen(
++        fullscreen, fullscreen ? fullscreen_target_display_id_.value_or(
++                                    display::kInvalidDisplayId)
++                               : display::kInvalidDisplayId);
++#else
+     widget()->SetFullscreen(fullscreen);
+-  else if (fullscreen)
++#endif
++  } else if (fullscreen)
+     widget()->native_widget_private()->Show(
+         ui::mojom::WindowShowState::kFullscreen, gfx::Rect());
+ #endif
+--- a/shell/browser/api/electron_api_base_window.h
++++ b/shell/browser/api/electron_api_base_window.h
+@@ -5,6 +5,7 @@
+ #ifndef ELECTRON_SHELL_BROWSER_API_ELECTRON_API_BASE_WINDOW_H_
+ #define ELECTRON_SHELL_BROWSER_API_ELECTRON_API_BASE_WINDOW_H_
+ 
++#include <cstdint>
+ #include <array>
+ #include <map>
+ #include <memory>
+@@ -121,6 +122,9 @@
+   void Restore();
+   bool IsMinimized() const;
+   void SetFullScreen(bool fullscreen);
++#if BUILDFLAG(IS_LINUX)
++  bool SetFullScreenOnDisplay(int64_t display_id);
++#endif
+   bool IsFullscreen() const;
+   void SetBounds(const gfx::Rect& bounds, gin::Arguments* args);
+   gfx::Rect GetBounds() const;
+--- a/shell/browser/api/electron_api_base_window.cc
++++ b/shell/browser/api/electron_api_base_window.cc
+@@ -437,6 +437,12 @@
+   window_->SetFullScreen(fullscreen);
+ }
+ 
++#if BUILDFLAG(IS_LINUX)
++bool BaseWindow::SetFullScreenOnDisplay(int64_t display_id) {
++  return window_->SetFullScreenOnDisplay(display_id);
++}
++#endif
++
+ bool BaseWindow::IsFullscreen() const {
+   return window_->IsFullscreen();
+ }
+@@ -1184,6 +1190,9 @@
+       .SetMethod("restore", &BaseWindow::Restore)
+       .SetMethod("isMinimized", &BaseWindow::IsMinimized)
+       .SetMethod("setFullScreen", &BaseWindow::SetFullScreen)
++#if BUILDFLAG(IS_LINUX)
++      .SetMethod("setFullScreenOnDisplay", &BaseWindow::SetFullScreenOnDisplay)
++#endif
+       .SetMethod("isFullScreen", &BaseWindow::IsFullscreen)
+       .SetMethod("setBounds", &BaseWindow::SetBounds)
+       .SetMethod("getBounds", &BaseWindow::GetBounds)
