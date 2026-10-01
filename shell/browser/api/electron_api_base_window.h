@@ -6,6 +6,7 @@
 #define ELECTRON_SHELL_BROWSER_API_ELECTRON_API_BASE_WINDOW_H_
 
 #include <array>
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <string>
@@ -150,6 +151,9 @@ class BaseWindow : public gin_helper::TrackableObject<BaseWindow>,
   void Restore();
   bool IsMinimized() const;
   void SetFullScreen(bool fullscreen);
+#if BUILDFLAG(IS_LINUX)
+  bool SetFullScreenOnDisplay(int64_t display_id);
+#endif
   bool IsFullscreen() const;
   void SetBounds(v8::Local<v8::Object> bounds, gin::Arguments* args);
   gfx::Rect GetBounds() const;

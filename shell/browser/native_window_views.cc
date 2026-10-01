@@ -40,6 +40,7 @@
 #include "ui/base/hit_test.h"
 #include "ui/compositor/compositor.h"
 #include "ui/display/screen.h"
+#include "ui/display/types/display_constants.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/geometry/outsets.h"
 #include "ui/gfx/image/image.h"
@@ -821,6 +822,23 @@ bool NativeWindowViews::IsMinimized() const {
   return widget()->IsMinimized();
 }
 
+#if BUILDFLAG(IS_LINUX)
+bool NativeWindowViews::SetFullScreenOnDisplay(int64_t display_id) {
+  display::Display target;
+  auto* screen = display::Screen::Get();
+  if (!IsVisible() || !IsFullScreenable() || !screen ||
+      display_id == display::kInvalidDisplayId ||
+      !screen->GetDisplayWithDisplayId(display_id, &target)) {
+    return false;
+  }
+  fullscreen_target_display_id_ = display_id;
+  SetFullScreen(true);
+  fullscreen_target_display_id_.reset();
+  // This reports submission only, not the compositor's placement decision.
+  return true;
+}
+#endif
+
 void NativeWindowViews::SetFullScreen(bool fullscreen) {
   if (!IsFullScreenable())
     return;
@@ -867,9 +885,16 @@ void NativeWindowViews::SetFullScreen(bool fullscreen) {
   if (leaving_fullscreen && !IsVisible())
     FlipWindowStyle(GetAcceleratedWidget(), true, WS_VISIBLE);
 #else
-  if (IsVisible())
+  if (IsVisible()) {
+#if BUILDFLAG(IS_LINUX)
+    widget()->SetFullscreen(fullscreen,
+                            fullscreen ? fullscreen_target_display_id_.value_or(
+                                             display::kInvalidDisplayId)
+                                       : display::kInvalidDisplayId);
+#else
     widget()->SetFullscreen(fullscreen);
-  else if (fullscreen)
+#endif
+  } else if (fullscreen)
     widget()->native_widget_private()->Show(
         ui::mojom::WindowShowState::kFullscreen, gfx::Rect());
 #endif

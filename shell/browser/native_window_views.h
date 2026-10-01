@@ -7,6 +7,7 @@
 
 #include "shell/browser/native_window.h"
 
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <string>
@@ -76,6 +77,9 @@ class NativeWindowViews : public NativeWindow,
   void Restore() override;
   bool IsMinimized() const override;
   void SetFullScreen(bool fullscreen) override;
+#if BUILDFLAG(IS_LINUX)
+  bool SetFullScreenOnDisplay(int64_t display_id) override;
+#endif
   bool IsFullscreen() const override;
   void SetBounds(const gfx::Rect& bounds, bool animate) override;
   gfx::Rect GetBounds() const override;
@@ -395,6 +399,9 @@ class NativeWindowViews : public NativeWindow,
   bool maximizable_ = true;
   bool minimizable_ = true;
   bool fullscreenable_ = true;
+#if BUILDFLAG(IS_LINUX)
+  std::optional<int64_t> fullscreen_target_display_id_;
+#endif
   bool has_shadow_ = true;
   gfx::Size widget_size_;
   double opacity_ = 1.0;

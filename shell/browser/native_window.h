@@ -5,6 +5,7 @@
 #ifndef ELECTRON_SHELL_BROWSER_NATIVE_WINDOW_H_
 #define ELECTRON_SHELL_BROWSER_NATIVE_WINDOW_H_
 
+#include <cstdint>
 #include <list>
 #include <memory>
 #include <optional>
@@ -98,6 +99,11 @@ class NativeWindow : public views::WidgetDelegate {
   virtual void Restore() = 0;
   virtual bool IsMinimized() const = 0;
   virtual void SetFullScreen(bool fullscreen) = 0;
+#if BUILDFLAG(IS_LINUX)
+  // Prototype: no implicit display choice; subclasses must explicitly support
+  // it.
+  virtual bool SetFullScreenOnDisplay(int64_t display_id) = 0;
+#endif
   virtual bool IsFullscreen() const = 0;
 
   virtual void SetBounds(const gfx::Rect& bounds, bool animate) = 0;

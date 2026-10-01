@@ -745,6 +745,20 @@ Sets whether the window should be in fullscreen mode.
 > [!NOTE]
 > On macOS, fullscreen transitions take place asynchronously. If further actions depend on the fullscreen state, use the ['enter-full-screen'](browser-window.md#event-enter-full-screen) or ['leave-full-screen'](browser-window.md#event-leave-full-screen) events.
 
+#### `win.setFullScreenOnDisplay(displayId)` _Linux_ _Experimental_
+
+* `displayId` Integer - A display ID from the current `screen.getAllDisplays()` inventory.
+
+Returns `boolean` - Whether the request was submitted. This does not confirm
+that the compositor placed the window on the requested display.
+
+Requests fullscreen on a specific display for a visible, fullscreenable window.
+Returns `false` for a hidden window or an unavailable display. The compositor
+may ignore the requested display. In particular, an initial fullscreen request
+before mapping may be handled differently from a request on an already mapped
+window. Use `setFullScreen(false)` to leave fullscreen.
+
+
 #### `win.isFullScreen()`
 
 Returns `boolean` - Whether the window is in fullscreen mode.

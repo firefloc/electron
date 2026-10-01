@@ -28,6 +28,31 @@ describe('BaseWindow module', () => {
     expect(BaseWindow.prototype.constructor.name).to.equal('BaseWindow');
   });
 
+  describe('setFullScreenOnDisplay', () => {
+    afterEach(closeAllWindows);
+
+    it('is exposed only on Linux', () => {
+      expect(typeof BaseWindow.prototype.setFullScreenOnDisplay).to.equal(
+        process.platform === 'linux' ? 'function' : 'undefined'
+      );
+    });
+
+    ifdescribe(process.platform === 'linux')('request validation', () => {
+      it('rejects a hidden window without showing it', () => {
+        const w = new BaseWindow({ show: false });
+        expect(w.setFullScreenOnDisplay(screen.getPrimaryDisplay().id)).to.be.false;
+        expect(w.isVisible()).to.be.false;
+        expect(w.isFullScreen()).to.be.false;
+      });
+
+      it('rejects an invalid display without entering fullscreen', () => {
+        const w = new BaseWindow();
+        expect(w.setFullScreenOnDisplay(-1)).to.be.false;
+        expect(w.isFullScreen()).to.be.false;
+      });
+    });
+  });
+
   describe('BaseWindow constructor', () => {
     afterEach(closeAllWindows);
 

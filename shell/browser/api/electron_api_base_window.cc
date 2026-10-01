@@ -491,6 +491,12 @@ void BaseWindow::SetFullScreen(bool fullscreen) {
   window_->SetFullScreen(fullscreen);
 }
 
+#if BUILDFLAG(IS_LINUX)
+bool BaseWindow::SetFullScreenOnDisplay(int64_t display_id) {
+  return window_->SetFullScreenOnDisplay(display_id);
+}
+#endif
+
 bool BaseWindow::IsFullscreen() const {
   return window_->IsFullscreen();
 }
@@ -1363,6 +1369,9 @@ void BaseWindow::BuildPrototype(v8::Isolate* isolate,
       .SetMethod<&BaseWindow::Restore>("restore")
       .SetMethod<&BaseWindow::IsMinimized>("isMinimized")
       .SetMethod<&BaseWindow::SetFullScreen>("setFullScreen")
+#if BUILDFLAG(IS_LINUX)
+      .SetMethod<&BaseWindow::SetFullScreenOnDisplay>("setFullScreenOnDisplay")
+#endif
       .SetMethod<&BaseWindow::IsFullscreen>("isFullScreen")
       .SetProperty<&BaseWindow::IsFullscreen, &BaseWindow::SetFullScreen>(
           "fullScreen")
